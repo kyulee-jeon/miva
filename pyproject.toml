@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mival"
+version = "0.1.0"
+description = "MI-VAL — standardized, reproducible AI validation on the OMOP MI-CDM"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Kyulee Jeon" }]
+keywords = ["OMOP", "MI-CDM", "DICOM", "ECG", "medical imaging", "external validation"]
+
+# Core stays deliberately small: the framework must install on a locked-down
+# hospital analysis workstation. Everything heavier is an extra.
+dependencies = [
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+db = ["psycopg[binary]>=3.1", "sqlalchemy>=2.0"]
+dicom = ["pydicom>=2.4", "numpy>=1.24"]
+signal = ["scipy>=1.10", "wfdb>=4.1"]
+torch = ["torch>=2.0"]
+hub = ["huggingface-hub>=0.23"]
+dev = ["pytest>=7.4", "ruff>=0.4"]
+all = ["mival[db,dicom,signal,torch,hub]"]
+
+[project.scripts]
+mival = "mival.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+mival = ["retrieve/sql/*.sql"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

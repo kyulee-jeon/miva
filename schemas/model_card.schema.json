@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kyulee/mi-val/schemas/model_card.schema.json",
+  "title": "MI-VAL Model Card",
+  "description": "Superset of the RSNA ATLAS model.json. ATLAS field names are kept where they exist; MI-VAL adds the loadability, input-contract, and environment fields that determine whether a published model can actually be re-run at another institution.",
+  "type": "object",
+  "required": ["id", "name", "version", "task", "modality", "source_type", "source_uri", "input_spec"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "name": { "type": "string" },
+    "version": { "type": "string" },
+    "task": {
+      "enum": ["binary_classification", "multiclass_classification",
+               "multilabel_classification", "regression", "segmentation", "representation"]
+    },
+    "modality": { "enum": ["ECG", "CR", "DX", "CT", "MR", "US", "OTHER"] },
+
+    "source_type": { "enum": ["local", "github", "huggingface", "zenodo", "url"] },
+    "source_uri": { "type": "string" },
+    "weights_format": { "enum": ["pth", "pt", "safetensors", "h5", "onnx", "ckpt"] },
+    "entrypoint": {
+      "type": "string",
+      "description": "module:function that builds the architecture, e.g. 'ecgfounder.net:build_model'. Omit for TorchScript / fully pickled models.",
+      "pattern": "^[A-Za-z_][\\w.]*:[A-Za-z_]\\w*$"
+    },
+    "checksum_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+
+    "input_spec": {
+      "type": "object",
+      "description": "Checked against observed MI-CDM metadata before inference. Every key here becomes an automatic compatibility check; keys omitted are keys nobody will verify.",
+      "properties": {
+        "sampling_hz": { "type": "number" },
+        "n_leads": { "type": "integer" },
+        "lead_order": { "type": "array", "items": { "type": "string" } },
+        "duration_s": { "type": "number" },
+        "units": { "enum": ["mV", "uV", "V", "HU", "raw", "normalized"] },
+        "shape": { "type": "array", "items": { "type": "integer" } },
+        "normalization": { "type": "string" }
+      }
+    },
+    "output_spec": {
+      "type": "object",
+      "properties": {
+        "n_outputs": { "type": "integer" },
+        "activation": { "enum": ["sigmoid", "softmax", "none"] },
+        "class_names": { "type": "array", "items": { "type": "string" } },
+        "positive_index": { "type": "integer" }
+      }
+    },
+
+    "framework": { "type": "string", "examples": ["torch==2.3.1", "tensorflow==2.15.0"] },
+    "python_version": { "type": "string" },
+    "dependencies": { "type": "array", "items": { "type": "string" } },
+    "device": { "enum": ["cpu", "cuda", "mps"] },
+
+    "ensemble": { "type": "integer", "minimum": 1 },
+    "hyperparameters": { "type": "object" },
+
+    "intended_use": { "type": "string" },
+    "training_data": { "type": "string" },
+    "known_limitations": { "type": "array", "items": { "type": "string" } },
+    "license": { "type": "string" },
+    "citation": { "type": "string" }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kyulee/mi-val/schemas/dataset.schema.json",
+  "title": "MI-VAL Dataset Descriptor",
+  "description": "The dataset side of the RSNA ATLAS dataset.json, re-expressed against MI-CDM. Unlike a file-list descriptor, this one is a *query*: the dataset is whatever the cohort + retrieval spec resolve to at the executing site, which is exactly what makes it portable across institutions.",
+  "type": "object",
+  "required": ["name", "cohort", "retrieval"],
+  "properties": {
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "site": { "type": "string", "description": "Executing institution. Site-specific, not shared." },
+    "cdm_version": { "type": "string", "examples": ["5.4 + MI-CDM 1.0"] },
+
+    "cohort": {
+      "type": "object",
+      "required": ["cohort_definition_id", "name", "results_schema"],
+      "properties": {
+        "cohort_definition_id": { "type": "integer" },
+        "name": { "type": "string" },
+        "results_schema": { "type": "string" },
+        "cohort_table": { "type": "string", "default": "cohort" },
+        "cdm_schema": { "type": "string", "default": "cdm" },
+        "atlas_url": { "type": "string" },
+        "atlas_definition_json": {
+          "type": "object",
+          "description": "Full ATLAS export. Required for cross-site portability — an id alone does not reconstruct a population."
+        }
+      }
+    },
+
+    "retrieval": {
+      "type": "object",
+      "description": "Which image_occurrence rows count as 'the study image' for each subject. Every ambiguity a reviewer would ask about is a named field here.",
+      "properties": {
+        "modality": { "enum": ["ECG", "CR", "DX", "CT", "MR", "US", "OTHER"] },
+        "window_start_days": { "type": "integer" },
+        "window_end_days": { "type": "integer" },
+        "selection": { "enum": ["first", "last", "nearest_to_index", "all"] },
+        "max_per_subject": { "type": ["integer", "null"] },
+        "require_local_file": { "type": "boolean" },
+        "metadata_filters": {
+          "type": "object",
+          "description": "MI-CDM feature name -> required value or list of allowed values.",
+          "examples": [{ "Sampling Frequency": [500, 1000] }]
+        },
+        "anatomic_site_concept_ids": { "type": "array", "items": { "type": "integer" } },
+        "local_path_root": { "type": "string", "description": "Site mount point. Overridden per site; never travels with a shared manifest." }
+      }
+    },
+
+    "labels": {
+      "type": "object",
+      "description": "Outcome definition. Also an ATLAS cohort in most studies — keeping it as a cohort id rather than a hand-built column is what makes the label auditable.",
+      "properties": {
+        "source": { "enum": ["atlas_cohort", "sql", "csv"] },
+        "cohort_definition_id": { "type": "integer" },
+        "sql_file": { "type": "string" },
+        "csv_file": { "type": "string" },
+        "positive_label": { "type": ["string", "integer"] }
+      }
+    },
+
+    "characteristics": {
+      "type": "object",
+      "description": "Concept sets for the step (2) clinical panel.",
+      "properties": {
+        "condition_concept_ids": { "type": "array", "items": { "type": "integer" } },
+        "measurement_concept_ids": { "type": "array", "items": { "type": "integer" } },
+        "lookback_days": { "type": "integer", "default": 365 },
+        "lab_window_days": { "type": "integer", "default": 1 }
+      }
+    }
+  }
+}

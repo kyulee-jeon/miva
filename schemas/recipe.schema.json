@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kyulee/mi-val/schemas/recipe.schema.json",
+  "title": "MI-VAL Preprocessing Recipe",
+  "description": "An ordered list of registered ops with parameters. Hashable and serializable, so a methods section can cite recipe@hash instead of prose. Ops declare the MI-CDM attributes they read; the engine refuses to run an op whose attribute is missing rather than assuming a default.",
+  "type": "object",
+  "required": ["name", "modality", "ops"],
+  "properties": {
+    "name": { "type": "string" },
+    "version": { "type": "string", "default": "0.1.0" },
+    "modality": { "enum": ["ECG", "CR", "DX", "CT", "MR", "US", "OTHER"] },
+    "description": { "type": "string" },
+    "ops": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["op"],
+        "properties": { "op": { "type": "string" } },
+        "additionalProperties": true
+      }
+    }
+  },
+  "$comment": "Built-in ECG ops: select_leads, resample, bandpass, notch, crop_or_pad, scale_units, normalize, drop_if_flat. Built-in image ops: apply_voi_lut, resize, rescale_intensity. Run `mival ops` for the live registry including site-registered ops."
+}

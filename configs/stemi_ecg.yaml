@@ -1,0 +1,142 @@
+# MI-VAL study config — STEMI detection from 12-lead ECG on MIMIC MI-CDM.
+#
+# This file is the entire study protocol. Everything a second site needs in
+# order to run the same study is here, except `local_path_root` and `site`,
+# which are deliberately site-local.
+#
+#   mival dry-run -c configs/stemi_ecg.yaml
+
+site: mimic-dev
+
+cohort:
+  cohort_definition_id: 1042
+  name: "Acute MI, first inpatient encounter"
+  results_schema: results
+  cdm_schema: cdm
+  cohort_table: cohort
+  atlas_url: "https://atlas.example.org/#/cohortdefinition/1042"
+  # Paste the full ATLAS export here before sharing this config. Without it the
+  # run is not reproducible at another site — `mival verify` will say so.
+  atlas_definition_json: null
+
+retrieval:
+  modality: ECG
+  window_start_days: -1        # ECG taken up to 24h before index...
+  window_end_days: 0           # ...through index day
+  selection: nearest_to_index
+  max_per_subject: 1
+  require_local_file: true
+  metadata_filters:
+    # Restrict to the acquisition setting the model was built for, rather than
+    # harmonizing everything silently in the recipe.
+    Sampling Frequency: [500]
+  local_path_root: /data/mimic-micdm/ecg   # SITE-LOCAL
+
+labels:
+  source: atlas_cohort
+  cohort_definition_id: 1043   # STEMI outcome cohort
+  positive_label: 1
+
+characteristics:
+  lookback_days: 365
+  lab_window_days: 1
+  condition_concept_ids: [201820, 316866, 4329847]     # DM, HTN, MI
+  measurement_concept_ids: [3020460, 3013721, 3006923] # CRP, troponin, ALT
+
+preprocess:
+  loader: dicom_waveform
+  strict: true
+  name: ecg-12lead-500hz-standard
+  modality: ECG
+  version: "1.0.0"
+  description: >
+    Lead reorder to the standard 12, resample to 500 Hz, 0.5-40 Hz bandpass,
+    60 Hz notch, 10 s center crop, per-lead z-score.
+  ops:
+    - op: select_leads
+      leads: [I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]
+    - op: scale_units
+      target_unit: mV
+    - op: resample
+      target_hz: 500
+    - op: bandpass
+      low_hz: 0.5
+      high_hz: 40.0
+    - op: notch
+      freq_hz: 60.0
+    - op: crop_or_pad
+      n_samples: 5000
+      mode: center
+    - op: drop_if_flat
+    - op: normalize
+      method: zscore_per_lead
+
+models:
+  - id: stemi-cnn
+    name: "STEMI 12-lead CNN"
+    version: "1.0.0"
+    task: binary_classification
+    modality: ECG
+    source_type: local
+    source_uri: ~/models/stemi_cnn.pth
+    weights_format: pth
+    entrypoint: "stemi_cnn.model:build_model"
+    framework: "torch==2.3.1"
+    device: cpu
+    input_spec:
+      sampling_hz: 500
+      n_leads: 12
+      lead_order: [I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]
+      duration_s: 10
+      units: mV
+      shape: [12, 5000]
+    output_spec:
+      n_outputs: 1
+      activation: sigmoid
+      positive_index: 0
+    intended_use: "Retrospective research. Not for clinical decision support."
+
+  - id: ecgfounder
+    name: "ECGFounder"
+    version: "1.0.0"
+    task: representation
+    modality: ECG
+    source_type: huggingface
+    source_uri: "PKUDigitalHealth/ECGFounder"
+    weights_format: pth
+    framework: "torch==2.3.1"
+    device: cpu
+    ensemble: 1
+    hyperparameters:
+      head: linear_probe
+      freeze_backbone: true
+    input_spec:
+      sampling_hz: 500
+      n_leads: 12
+      duration_s: 10
+      units: mV
+    output_spec:
+      n_outputs: 1
+      activation: sigmoid
+
+evaluation:
+  task: binary_classification
+  primary_metrics: [auroc, auprc]
+  secondary_metrics: [sensitivity, specificity, ppv, npv, f1, mcc, balanced_accuracy]
+  operating_point: youden
+  bootstrap_n: 1000
+  ci_level: 0.95
+  calibration: true
+  seed: 42
+  # Stratify by acquisition metadata first — that is where MI-CDM adds
+  # something a plain image folder cannot.
+  subgroup_by:
+    - Sampling Frequency
+    - Waveform Originality
+    - Manufacturer
+    - gender
+    - age_group
+  rationale: >
+    AUROC as primary discrimination metric; AUPRC reported alongside because
+    STEMI prevalence in the acute-MI cohort is well under 10%, where AUROC
+    flatters. Youden operating point stated explicitly rather than assuming 0.5.

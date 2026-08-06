@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+_workspace/
+_workspace_prev/
+.venv/
+docs/page-*.jpg
+docs/*.pdf
